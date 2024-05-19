@@ -468,6 +468,7 @@ def calculate_monthly_payroll():
 
         if overtime > 0:
             overtime_record = Overtime(
+                id = 7001,
                 employee_id=employee.id,
                 year_month=year_month_date,
                 number_of_hours=overtime,
