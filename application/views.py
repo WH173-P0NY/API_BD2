@@ -177,7 +177,7 @@ def get_payroll(employee_id):
     return jsonify([payroll.to_dict() for payroll in payroll_list]), 200
 
 
-@api.route('/allowance/<int:id>', methods=['GET'])
+@api.route('/allowancebyid/<int:id>', methods=['GET'])
 def get_allowance(id):
     allowance = Allowance.query.get_or_404(id)
     return jsonify(allowance.to_dict()), 200
@@ -262,7 +262,7 @@ def delete_absence(id):
     return make_response(jsonify({"message": "Absence deleted"}), 204)
 
 
-@api.route('/allowance', methods=['POST'])
+@api.route('/allowance/post', methods=['POST'])
 def add_allowance():
     """
     {
