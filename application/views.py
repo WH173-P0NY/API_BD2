@@ -430,7 +430,9 @@ def generate_report():
     df = pd.DataFrame(data)
 
     # Zapis do pliku Excel
-    excel_path = 'payroll_report.xlsx'
+    cwd = os.getcwd()
+    path = 'payroll_report.xlsx'
+    excel_path = os.path.join(cwd,path)
     df.to_excel(excel_path, index=False)
 
     return send_file(excel_path, as_attachment=True, download_name='payroll_report.xlsx')
