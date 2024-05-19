@@ -471,8 +471,7 @@ def calculate_monthly_payroll():
                 employee_id=employee.id,
                 year_month=year_month_date,
                 number_of_hours=overtime,
-                hour_multiplier=Decimal(1.5),
-                confirmation='1'
+                hour_multiplier=Decimal(1.5)
             )
             db.session.add(overtime_record)
 
