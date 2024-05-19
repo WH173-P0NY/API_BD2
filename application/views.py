@@ -177,7 +177,7 @@ def get_payroll(employee_id):
     return jsonify([payroll.to_dict() for payroll in payroll_list]), 200
 
 
-@api.route('/allowancebyid/<int:id>', methods=['GET'])
+@api.route('/allowance/<int:id>', methods=['GET'])
 def get_allowance(id):
     allowance = Allowance.query.get_or_404(id)
     return jsonify(allowance.to_dict()), 200
@@ -262,7 +262,7 @@ def delete_absence(id):
     return make_response(jsonify({"message": "Absence deleted"}), 204)
 
 
-@api.route('/allowance/post', methods=['POST'])
+@api.route('/allowance', methods=['POST'])
 def add_allowance():
     """
     {
@@ -303,6 +303,7 @@ def get_all_employee_allowances():
             "last_name": employee.last_name
         }
         allowances = db.session.query(
+            Allowance.id.label('allowance_id'),
             Allowance.amount,
             AllowanceType.name.label('allowance_type'),
             AllowanceType.description.label('allowance_description'),
@@ -430,9 +431,7 @@ def generate_report():
     df = pd.DataFrame(data)
 
     # Zapis do pliku Excel
-    cwd = os.getcwd()
-    path = 'payroll_report.xlsx'
-    excel_path = os.path.join(cwd,path)
+    excel_path = 'payroll_report.xlsx'
     df.to_excel(excel_path, index=False)
 
     return send_file(excel_path, as_attachment=True, download_name='payroll_report.xlsx')
