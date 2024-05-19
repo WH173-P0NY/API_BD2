@@ -130,6 +130,7 @@ class Overtime(db.Model):
     hour_multiplier = db.Column('wspolczynnik_nadgodzin', db.Numeric)
     employee_id = db.Column('pracownik_id_pracownika', db.Integer, db.ForeignKey('pracownicy.id_pracownika'))
     employee = db.relationship('Employee', backref='overtimes')
+    
     def to_dict(self):
         return {
             "id": self.id,
