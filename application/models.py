@@ -136,7 +136,6 @@ class Overtime(db.Model):
             "year_month": self.year_month.strftime('%Y-%m') if self.year_month else None,
             "number_of_hours": str(self.number_of_hours),
             "hour_multiplier": str(self.hour_multiplier),
-            "confirmation": self.confirmation,
             "employee_id": self.employee_id,
             "employee_name": f"{self.employee.first_name} {self.employee.last_name}" if self.employee else None
         }
