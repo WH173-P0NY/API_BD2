@@ -525,7 +525,7 @@ def get_managers():
     else:
         return jsonify({"message": "No managers found"}), 404
 
-@api.route('/presences/bulk', methods=['POST'])
+@app.route('/api/presences/bulk', methods=['POST'])
 def add_presences_bulk():
     data = request.get_json()
     if 'presences' not in data or not isinstance(data['presences'], list):
@@ -533,7 +533,7 @@ def add_presences_bulk():
 
     new_presences = []
     updated_presences = []
-    
+
     for presence_data in data['presences']:
         try:
             date = datetime.strptime(presence_data['date'], '%Y-%m-%d').isoformat()
@@ -541,6 +541,8 @@ def add_presences_bulk():
             time_of_exit = datetime.strptime(presence_data['time_of_exit'], '%H:%M:%S').time()
             employee_id = presence_data['employee_id']
             
+            logging.debug(f"Checking presence for employee {employee_id} on date {date}")
+
             existing_presence = Presence.query.filter_by(
                 date=date,
                 time_of_entry=time_of_entry,
@@ -549,11 +551,11 @@ def add_presences_bulk():
             ).first()
 
             if existing_presence:
-                # Aktualizuj istniejący wpis
+                logging.debug(f"Updating existing presence for employee {employee_id} on date {date}")
                 existing_presence.comment = presence_data.get('comment', existing_presence.comment)
                 updated_presences.append(existing_presence)
             else:
-                # Dodaj nowy wpis
+                logging.debug(f"Adding new presence for employee {employee_id} on date {date}")
                 new_presence = Presence(
                     date=date,
                     time_of_entry=time_of_entry,
@@ -563,8 +565,10 @@ def add_presences_bulk():
                 )
                 new_presences.append(new_presence)
         except KeyError as e:
+            logging.error(f"Missing required data: {str(e)}")
             return jsonify({"error": f"Missing required data: {str(e)}"}), 400
         except ValueError as e:
+            logging.error(f"Invalid date or time format: {str(e)}")
             return jsonify({"error": f"Invalid date or time format: {str(e)}"}), 400
 
     if new_presences:
