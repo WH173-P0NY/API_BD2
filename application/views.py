@@ -385,12 +385,12 @@ def generate_report():
     end_date = request.args.get('end_date')
     employment_date_from = request.args.get('employment_date_from', None)
     employment_date_to = request.args.get('employment_date_to', None)
-    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
-    end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
+    start_date = datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.strptime(end_date, '%Y-%m-%d')
     if employment_date_from:
-        employment_date_from = datetime.datetime.strptime(employment_date_from, '%Y-%m-%d')
+        employment_date_from = datetime.strptime(employment_date_from, '%Y-%m-%d')
     if employment_date_to:
-        employment_date_to = datetime.datetime.strptime(employment_date_to, '%Y-%m-%d')
+        employment_date_to = datetime.strptime(employment_date_to, '%Y-%m-%d')
     employees_query = Employee.query
 
     # Filtracja po department_id, jeśli podane
