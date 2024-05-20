@@ -525,64 +525,31 @@ def get_managers():
     else:
         return jsonify({"message": "No managers found"}), 404
 
-@app.route('/api/presences/bulk', methods=['POST'])
+@api.route('/presences/bulk', methods=['POST'])
 def add_presences_bulk():
     data = request.get_json()
     if 'presences' not in data or not isinstance(data['presences'], list):
         return jsonify({"error": "Invalid data format, expected a list of presences."}), 400
 
     new_presences = []
-    updated_presences = []
-
     for presence_data in data['presences']:
         try:
-            date = datetime.strptime(presence_data['date'], '%Y-%m-%d').isoformat()
-            time_of_entry = datetime.strptime(presence_data['time_of_entry'], '%H:%M:%S').time()
-            time_of_exit = datetime.strptime(presence_data['time_of_exit'], '%H:%M:%S').time()
-            employee_id = presence_data['employee_id']
-            
-            logging.debug(f"Checking presence for employee {employee_id} on date {date}")
-
-            existing_presence = Presence.query.filter_by(
-                date=date,
-                time_of_entry=time_of_entry,
-                time_of_exit=time_of_exit,
-                employee_id=employee_id
-            ).first()
-
-            if existing_presence:
-                logging.debug(f"Updating existing presence for employee {employee_id} on date {date}")
-                existing_presence.comment = presence_data.get('comment', existing_presence.comment)
-                updated_presences.append(existing_presence)
-            else:
-                logging.debug(f"Adding new presence for employee {employee_id} on date {date}")
-                new_presence = Presence(
-                    date=date,
-                    time_of_entry=time_of_entry,
-                    time_of_exit=time_of_exit,
-                    comment=presence_data.get('comment', ''),
-                    employee_id=employee_id
-                )
-                new_presences.append(new_presence)
+            new_presence = Presence(
+                date=datetime.strptime(presence_data['date'], '%Y-%m-%d').isoformat(),
+                time_of_entry=datetime.strptime(presence_data['time_of_entry'], '%H:%M:%S').time(),
+                time_of_exit=datetime.strptime(presence_data['time_of_exit'], '%H:%M:%S').time(),
+                comment=presence_data.get('comment', ''),
+                employee_id=presence_data['employee_id']
+            )
+            new_presences.append(new_presence)
         except KeyError as e:
-            logging.error(f"Missing required data: {str(e)}")
             return jsonify({"error": f"Missing required data: {str(e)}"}), 400
         except ValueError as e:
-            logging.error(f"Invalid date or time format: {str(e)}")
             return jsonify({"error": f"Invalid date or time format: {str(e)}"}), 400
 
-    if new_presences:
-        db.session.add_all(new_presences)
-    if updated_presences:
-        db.session.add_all(updated_presences)
-
+    db.session.add_all(new_presences)
     db.session.commit()
-
-    return jsonify({
-        "message": "Presences processed successfully",
-        "added_count": len(new_presences),
-        "updated_count": len(updated_presences)
-    }), 201
+    return jsonify({"message": "Presences added successfully", "count": len(new_presences)}), 201
 
 @api.route('/overtime', methods=['GET'])
 def get_overtime():
