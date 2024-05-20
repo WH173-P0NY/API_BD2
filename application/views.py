@@ -525,7 +525,7 @@ def get_managers():
     else:
         return jsonify({"message": "No managers found"}), 404
 
-
+@api.route('/presences/bulk', methods=['POST'])
 def add_presences_bulk():
     data = request.get_json()
     if 'presences' not in data or not isinstance(data['presences'], list):
