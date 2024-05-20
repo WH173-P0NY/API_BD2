@@ -378,26 +378,27 @@ def get_absence_types():
 
 @api.route('/generate-report', methods=['GET'])
 def generate_report():
-    department_id = request.args.get('department_id')
-    superior_id = request.args.get('superior_id')
+    department_id = request.args.get('department_id', None)
+    superior_id = request.args.get('superior_id', None)
     start_date = request.args.get('start_date')
     end_date = request.args.get('end_date')
     employment_date_from = request.args.get('employment_date_from', None)
     employment_date_to = request.args.get('employment_date_to', None)
-
-    # Przekształcenie dat z formatu string na datetime
-    start_date = datetime.strptime(start_date, '%Y-%m-%d')
-    end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    start_date = datetime.datetime.strptime(start_date, '%Y-%m-%d')
+    end_date = datetime.datetime.strptime(end_date, '%Y-%m-%d')
     if employment_date_from:
-        employment_date_from = datetime.strptime(employment_date_from, '%Y-%m-%d')
+        employment_date_from = datetime.datetime.strptime(employment_date_from, '%Y-%m-%d')
     if employment_date_to:
-        employment_date_to = datetime.strptime(employment_date_to, '%Y-%m-%d')
+        employment_date_to = datetime.datetime.strptime(employment_date_to, '%Y-%m-%d')
+    employees_query = Employee.query
 
-    # Pobieranie danych pracowników
-    employees_query = Employee.query.filter(
-        Employee.department_id == department_id,
-        Employee.superior_id == superior_id
-    )
+    # Filtracja po department_id, jeśli podane
+    if department_id:
+        employees_query = employees_query.filter(Employee.department_id == department_id)
+
+    # Filtracja po superior_id, jeśli podane
+    if superior_id:
+        employees_query = employees_query.filter(Employee.superior_id == superior_id)
 
     # Filtracja po dacie zatrudnienia, jeśli podane
     if employment_date_from:
@@ -431,7 +432,7 @@ def generate_report():
     df = pd.DataFrame(data)
     path = os.getcwd()
     # Zapis do pliku Excel
-    excel_path = os.path.join(path,'payroll_report.xlsx')
+    excel_path = os.path.join(path, 'payroll_report.xlsx')
     df.to_excel(excel_path, index=False)
 
     return send_file(excel_path, as_attachment=True, download_name='payroll_report.xlsx')
