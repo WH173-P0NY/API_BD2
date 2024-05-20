@@ -7,9 +7,10 @@ from sqlalchemy import func, extract, cast, Date, Numeric, Float
 from decimal import Decimal
 import pandas as pd
 import os
-
+import logging 
 api = Blueprint('api', __name__)
-
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 @api.route('/employees', methods=['GET'])
 def get_employees():
