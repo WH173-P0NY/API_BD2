@@ -526,7 +526,6 @@ def get_managers():
         return jsonify({"message": "No managers found"}), 404
 
 
-@api.route('/presences/bulk', methods=['POST'])
 def add_presences_bulk():
     data = request.get_json()
     if 'presences' not in data or not isinstance(data['presences'], list):
@@ -535,21 +534,37 @@ def add_presences_bulk():
     if len(data['presences']) == 0:
         return jsonify({"error": "No presences provided."}), 400
 
-    new_presences = []
-    dates_to_delete = set()
+    # Pobieranie pierwszego wpisu w celu określenia dnia i pracownika
+    first_presence_data = data['presences'][0]
+    try:
+        date_example = datetime.strptime(first_presence_data['date'], '%Y-%m-%d').date()
+        employee_id = first_presence_data['employee_id']
+    except KeyError as e:
+        return jsonify({"error": f"Missing required data: {str(e)}"}), 400
+    except ValueError as e:
+        return jsonify({"error": f"Invalid date format: {str(e)}"}), 400
 
+    # Usuwanie obecności dla danego dnia i pracownika
+    try:
+        db.session.query(Presence).filter(
+            Presence.date == date_example,
+            Presence.employee_id == employee_id
+        ).delete(synchronize_session='fetch')
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"error": f"Database error during deletion: {str(e)}"}), 500
+
+    # Dodawanie nowych obecności
+    new_presences = []
     for presence_data in data['presences']:
         try:
-            date = datetime.strptime(presence_data['date'], '%Y-%m-%d').date()
-            employee_id = presence_data['employee_id']
-            dates_to_delete.add((date, employee_id))
-
             new_presence = Presence(
-                date=date,
+                date=datetime.strptime(presence_data['date'], '%Y-%m-%d').date(),
                 time_of_entry=datetime.strptime(presence_data['time_of_entry'], '%H:%M:%S').time(),
                 time_of_exit=datetime.strptime(presence_data['time_of_exit'], '%H:%M:%S').time(),
                 comment=presence_data.get('comment', ''),
-                employee_id=employee_id
+                employee_id=presence_data['employee_id']
             )
             new_presences.append(new_presence)
         except KeyError as e:
@@ -557,19 +572,6 @@ def add_presences_bulk():
         except ValueError as e:
             return jsonify({"error": f"Invalid date or time format: {str(e)}"}), 400
 
-    # Usuwanie obecności dla każdego dnia i pracownika
-    try:
-        for date, employee_id in dates_to_delete:
-            db.session.query(Presence).filter(
-                Presence.date == date,
-                Presence.employee_id == employee_id
-            ).delete(synchronize_session='fetch')
-        db.session.commit()
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"error": f"Database error during deletion: {str(e)}"}), 500
-
-    # Dodawanie nowych obecności
     db.session.add_all(new_presences)
     try:
         db.session.commit()
@@ -578,7 +580,6 @@ def add_presences_bulk():
         return jsonify({"error": f"Database error during insertion: {str(e)}"}), 500
 
     return jsonify({"message": "Presences added successfully", "count": len(new_presences)}), 201
-
 
 @api.route('/overtime', methods=['GET'])
 def get_overtime():
