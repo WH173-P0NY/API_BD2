@@ -1,124 +1,155 @@
 from flask import Blueprint, request, jsonify, make_response, send_file
 from . import db
-from .models import Employee, Department, Position, Presence, Absence, Overtime, Payroll, Allowance, AbsenceType, \
-    AllowanceType, AllowanceAssignment
-from datetime import datetime
+from .models import (
+    Employee,
+    Department,
+    Position,
+    Presence,
+    Absence,
+    Overtime,
+    Payroll,
+    Allowance,
+    AbsenceType,
+    AllowanceType,
+    AllowanceAssignment,
+)
+from datetime import datetime, timedelta
 from sqlalchemy import func, extract, cast, Date, Numeric, Float
 from decimal import Decimal
 import pandas as pd
 import os
-import logging 
-api = Blueprint('api', __name__)
+import logging
+
+api = Blueprint("api", __name__)
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@api.route('/employees', methods=['GET'])
+
+@api.route("/employees", methods=["GET"])
 def get_employees():
-    employees = Employee.query.join(Employee.department).join(Employee.position).filter(Employee.activity == '1').all()
+    employees = (
+        Employee.query.join(Employee.department)
+        .join(Employee.position)
+        .filter(Employee.activity == "1")
+        .all()
+    )
     return jsonify([employee.to_dict_full() for employee in employees]), 200
 
 
-@api.route('/employee/<int:id>', methods=['GET'])
+@api.route("/employee/<int:id>", methods=["GET"])
 def get_employee(id):
     employee = Employee.query.get_or_404(id)
     return jsonify(employee.to_dict()), 200
 
 
-@api.route('/employee', methods=['POST'])
+@api.route("/employee", methods=["POST"])
 def add_employee():
     data = request.get_json()
     new_employee = Employee(
-        first_name=data['first_name'],
-        last_name=data['last_name'],
-        date_of_employment=datetime.strptime(data['date_of_employment'], '%Y-%m-%d').isoformat(),
-        superior_id=data.get('superior_id'),
+        first_name=data["first_name"],
+        last_name=data["last_name"],
+        date_of_employment=datetime.strptime(
+            data["date_of_employment"], "%Y-%m-%d"
+        ).isoformat(),
+        superior_id=data.get("superior_id"),
         activity=1,
         remaining_leave=26,
-        part_time=data['part_time'],
-        hourly_rate=data['hourly_rate'],
-        department_id=data['department_id'],
-        position_id=data['position_id']
-
+        part_time=data["part_time"],
+        hourly_rate=data["hourly_rate"],
+        department_id=data["department_id"],
+        position_id=data["position_id"],
     )
     db.session.add(new_employee)
     db.session.commit()
     return make_response(jsonify(new_employee.to_dict()), 201)
 
 
-@api.route('/employee/<int:id>', methods=['PUT'])
+@api.route("/employee/<int:id>", methods=["PUT"])
 def update_employee(id):
     employee = Employee.query.get_or_404(id)
     data = request.get_json()
-    employee.first_name = data['first_name']
-    employee.last_name = data['last_name']
-    employee.date_of_employment = datetime.strptime(data['date_of_employment'], '%Y-%m-%d').isoformat(),
-    employee.superior_id = data['superior_id'],
-    employee.part_time = data['part_time'],
-    employee.hourly_rate = data['hourly_rate'],
-    employee.department_id = data['department_id'],
-    employee.position_id = data['position_id']
+    employee.first_name = data["first_name"]
+    employee.last_name = data["last_name"]
+    employee.date_of_employment = (
+        datetime.strptime(data["date_of_employment"], "%Y-%m-%d").isoformat(),
+    )
+    employee.superior_id = (data["superior_id"],)
+    employee.part_time = (data["part_time"],)
+    employee.hourly_rate = (data["hourly_rate"],)
+    employee.department_id = (data["department_id"],)
+    employee.position_id = data["position_id"]
 
     db.session.commit()
     return jsonify(employee.to_dict()), 200
 
 
-@api.route('/employee/delete/<int:id>', methods=['PUT'])
+@api.route("/employee/delete/<int:id>", methods=["PUT"])
 def delete_employee(id):
     employee = Employee.query.get_or_404(id)
     if employee:
-        employee.activity = '0'
+        employee.activity = "0"
         db.session.commit()
         return make_response(jsonify({"message": "Employee deactivated"}), 200)
     else:
         return jsonify({"error": "Employee not found"}), 404
 
 
-@api.route('/employee/activate/<int:id>', methods=['PUT'])
+@api.route("/employee/activate/<int:id>", methods=["PUT"])
 def activate_employee(id):
     employee = Employee.query.get_or_404(id)
     if employee:
-        employee.activity = '1'
+        employee.activity = "1"
         db.session.commit()
         return make_response(jsonify({"message": "Employee activated"}), 200)
     else:
         return jsonify({"error": "Employee not found"}), 404
 
 
-@api.route('/department', methods=['GET'])
+@api.route("/department", methods=["GET"])
 def get_departments():
     departments = Department.query.all()
     return jsonify([department.to_dict() for department in departments]), 200
 
 
-@api.route('/position', methods=['GET'])
+@api.route("/position", methods=["GET"])
 def get_position():
     positions = Position.query.all()
     return jsonify([position.to_dict() for position in positions]), 200
 
 
-@api.route('/presences', methods=['GET'])
+@api.route("/presences", methods=["GET"])
 def get_presences():
-    presences = (db.session.query(Presence, Employee.first_name, Employee.last_name)
-                 .join(Employee, Presence.employee_id == Employee.id).all())
-    return jsonify([{
-        "presence_id": presence[0].id,
-        "date": presence[0].date.strftime('%d-%m-%Y'),
-        "time_of_entry": presence[0].time_of_entry.isoformat(),
-        "time_of_exit": presence[0].time_of_exit.isoformat(),
-        "comment": presence[0].comment,
-        "employee_id": presence[0].employee_id,
-        "first_name": presence[1],
-        "last_name": presence[2]
-    } for presence in presences]), 200
+    presences = (
+        db.session.query(Presence, Employee.first_name, Employee.last_name)
+        .join(Employee, Presence.employee_id == Employee.id)
+        .all()
+    )
+    return (
+        jsonify(
+            [
+                {
+                    "presence_id": presence[0].id,
+                    "time_of_entry": presence[0].time_of_entry.isoformat(),
+                    "time_of_exit": presence[0].time_of_exit.isoformat(),
+                    "comment": presence[0].comment,
+                    "employee_id": presence[0].employee_id,
+                    "first_name": presence[1],
+                    "last_name": presence[2],
+                }
+                for presence in presences
+            ]
+        ),
+        200,
+    )
 
 
-@api.route('/presence/<int:employee_id>', methods=['GET'])
+@api.route("/presence/<int:employee_id>", methods=["GET"])
 def get_employee_presences(employee_id):
     presences = Presence.query.filter_by(employee_id=employee_id).all()
     return jsonify([presence.to_dict() for presence in presences]), 200
 
 
-@api.route('/presence', methods=['POST'])
+@api.route("/presence", methods=["POST"])
 def add_presence():
     """
     {
@@ -132,97 +163,120 @@ def add_presence():
     """
     data = request.get_json()
     new_presence = Presence(
-        date=datetime.strptime(data['date'], '%Y-%m-%d').isoformat(),
-        time_of_entry=datetime.strptime(data['time_of_entry'], '%Y-%m-%dT%H:%M:%S').time(),
-        time_of_exit=datetime.strptime(data['time_of_exit'], '%Y-%m-%dT%H:%M:%S').time(),
-        comment=data['comment'],
-        employee_id=data['employee_id']
+        date=datetime.strptime(data["date"], "%Y-%m-%d").isoformat(),
+        time_of_entry=datetime.strptime(
+            data["time_of_entry"], "%Y-%m-%dT%H:%M:%S"
+        ).time(),
+        time_of_exit=datetime.strptime(
+            data["time_of_exit"], "%Y-%m-%dT%H:%M:%S"
+        ).time(),
+        comment=data["comment"],
+        employee_id=data["employee_id"],
     )
     db.session.add(new_presence)
     db.session.commit()
     return make_response(jsonify(new_presence.to_dict()), 201)
 
 
-@api.route('/absences', methods=['GET'])
+@api.route("/absences", methods=["GET"])
 def get_absences():
-    absences = (db.session.query(Absence, AbsenceType.name, AbsenceType.payment_percentage, Employee.first_name,
-                                 Employee.last_name)
-                .join(AbsenceType, Absence.absence_type_id == AbsenceType.id)
-                .join(Employee, Absence.employee_id == Employee.id)
-                .all())
-    return jsonify([{
-        "id": absence[0].id,
-        "startDate": absence[0].start_date.strftime('%d-%m-%Y'),
-        "endDate": absence[0].end_date.strftime('%d-%m-%Y'),
-        "type": absence[1],
-        "payPercentage": absence[2],
-        "worker": absence[3] + ' ' + absence[4]
-    } for absence in absences]), 200
+    absences = (
+        db.session.query(
+            Absence,
+            AbsenceType.name,
+            AbsenceType.payment_percentage,
+            Employee.first_name,
+            Employee.last_name,
+        )
+        .join(AbsenceType, Absence.absence_type_id == AbsenceType.id)
+        .join(Employee, Absence.employee_id == Employee.id)
+        .all()
+    )
+    return (
+        jsonify(
+            [
+                {
+                    "id": absence[0].id,
+                    "startDate": absence[0].start_date.strftime("%d-%m-%Y"),
+                    "endDate": absence[0].end_date.strftime("%d-%m-%Y"),
+                    "type": absence[1],
+                    "payPercentage": absence[2],
+                    "worker": absence[3] + " " + absence[4],
+                }
+                for absence in absences
+            ]
+        ),
+        200,
+    )
 
 
-@api.route('/absences/<int:employee_id>', methods=['GET'])
+@api.route("/absences/<int:employee_id>", methods=["GET"])
 def get_employee_absences(employee_id):
     absences = Absence.query.filter_by(employee_id=employee_id).all()
     return jsonify([absence.to_dict() for absence in absences]), 200
 
 
-@api.route('/overtime/<int:employee_id>', methods=['GET'])
+@api.route("/overtime/<int:employee_id>", methods=["GET"])
 def get_employee_overtime(employee_id):
     overtime_list = Overtime.query.filter_by(employee_id=employee_id).all()
     return jsonify([overtime.to_dict() for overtime in overtime_list]), 200
 
 
-@api.route('/payroll/<int:employee_id>', methods=['GET'])
+@api.route("/payroll/<int:employee_id>", methods=["GET"])
 def get_payroll(employee_id):
     payroll_list = Payroll.query.filter_by(employee_id=employee_id).all()
     return jsonify([payroll.to_dict() for payroll in payroll_list]), 200
 
 
-@api.route('/allowance/<int:id>', methods=['GET'])
+@api.route("/allowance/<int:id>", methods=["GET"])
 def get_allowance(id):
     allowance = Allowance.query.get_or_404(id)
     return jsonify(allowance.to_dict()), 200
 
 
-@api.route('/absencetype/<int:id>', methods=['GET'])
+@api.route("/absencetype/<int:id>", methods=["GET"])
 def get_absencetype(id):
     absencetype = AbsenceType.query.get_or_404(id)
     return jsonify(absencetype.to_dict()), 200
 
 
-@api.route('/allowancetype/<int:id>', methods=['GET'])
+@api.route("/allowancetype/<int:id>", methods=["GET"])
 def get_allowancetype(id):
     allowancetype = AllowanceType.query.get_or_404(id)
     return jsonify(allowancetype.to_dict()), 200
 
 
-@api.route('/allowanceassignment/<int:payroll_id>', methods=['GET'])
+@api.route("/allowanceassignment/<int:payroll_id>", methods=["GET"])
 def get_allowanceassignment(payroll_id):
-    allowanceassignment = AllowanceAssignment.query.filter_by(payroll_id=payroll_id).all()
+    allowanceassignment = AllowanceAssignment.query.filter_by(
+        payroll_id=payroll_id
+    ).all()
     return jsonify([allowance.to_dict() for allowance in allowanceassignment]), 200
 
 
-@api.route('/absences', methods=['POST'])
+@api.route("/absences", methods=["POST"])
 def add_absence():
     data = request.get_json()
-    start_date = datetime.strptime(data['start_date'], '%Y-%m-%d')
-    end_date = datetime.strptime(data['end_date'], '%Y-%m-%d')
-    employee_id = data['employee_id']
-    absence_type_id = data['absence_type_id']
+    start_date = datetime.strptime(data["start_date"], "%Y-%m-%d")
+    end_date = datetime.strptime(data["end_date"], "%Y-%m-%d")
+    employee_id = data["employee_id"]
+    absence_type_id = data["absence_type_id"]
     num_days = (end_date - start_date).days + 1
 
     employee = Employee.query.get(employee_id)
     if employee:
         # Pobierz typ nieobecności
         absence_type = AbsenceType.query.get(absence_type_id)
-        if absence_type and absence_type.is_in_allowance == '1':  # Zakładamy, że tylko płatne nieobecności zmniejszają urlop
+        if (
+            absence_type and absence_type.is_in_allowance == "1"
+        ):  # Zakładamy, że tylko płatne nieobecności zmniejszają urlop
             employee.remaining_leave -= num_days
 
         new_absence = Absence(
             start_date=start_date.isoformat(),
             end_date=end_date.isoformat(),
             employee_id=employee_id,
-            absence_type_id=absence_type_id
+            absence_type_id=absence_type_id,
         )
         db.session.add(new_absence)
         db.session.commit()
@@ -231,20 +285,20 @@ def add_absence():
         return jsonify({"error": "Employee not found"}), 404
 
 
-@api.route('/absences/<int:id>', methods=['PUT'])
+@api.route("/absences/<int:id>", methods=["PUT"])
 def update_absence(id):
     absence = Absence.query.get_or_404(id)
     data = request.get_json()
-    absence.start_date = data['start_date']
-    absence.end_date = data['end_date']
-    absence.employee_id = data['employee_id'],
-    absence.absence_type_id = data['absence_type_id']
+    absence.start_date = data["start_date"]
+    absence.end_date = data["end_date"]
+    absence.employee_id = (data["employee_id"],)
+    absence.absence_type_id = data["absence_type_id"]
 
     db.session.commit()
     return jsonify(absence.to_dict()), 200
 
 
-@api.route('/absences/<int:id>', methods=['DELETE'])
+@api.route("/absences/<int:id>", methods=["DELETE"])
 def delete_absence(id):
     absence = Absence.query.get_or_404(id)
     employee = Employee.query.get(absence.employee_id)
@@ -254,7 +308,7 @@ def delete_absence(id):
 
     # Sprawdź, czy nieobecność była płatna
     absence_type = AbsenceType.query.get(absence.absence_type_id)
-    if absence_type and absence_type.is_in_allowance == '1':
+    if absence_type and absence_type.is_in_allowance == "1":
         employee.remaining_leave += num_days
 
     # Usuń nieobecność
@@ -263,7 +317,7 @@ def delete_absence(id):
     return make_response(jsonify({"message": "Absence deleted"}), 204)
 
 
-@api.route('/allowance', methods=['POST'])
+@api.route("/allowance", methods=["POST"])
 def add_allowance():
     """
     {
@@ -273,27 +327,24 @@ def add_allowance():
     }
     """
     data = request.get_json()
-    new_allowance = Allowance(
-        amount=data['amount'],
-        type_id=data['type_id']
-    )
+    new_allowance = Allowance(amount=data["amount"], type_id=data["type_id"])
     db.session.add(new_allowance)
     db.session.commit()
     return make_response(jsonify(new_allowance.to_dict()), 201)
 
 
-@api.route('/allowance/<int:id>', methods=['PUT'])
+@api.route("/allowance/<int:id>", methods=["PUT"])
 def update_allowance(id):
     allowance = Allowance.query.get_or_404(id)
     data = request.get_json()
-    allowance.amount = data['amount'],
-    allowance.type_id = data['type_id']
+    allowance.amount = (data["amount"],)
+    allowance.type_id = data["type_id"]
 
     db.session.commit()
     return jsonify(allowance.to_dict()), 200
 
 
-@api.route('/allowance', methods=['GET'])
+@api.route("/allowance", methods=["GET"])
 def get_all_employee_allowances():
     employees = Employee.query.all()
     all_allowances = []
@@ -301,23 +352,23 @@ def get_all_employee_allowances():
     for employee in employees:
         employee_info = {
             "first_name": employee.first_name,
-            "last_name": employee.last_name
+            "last_name": employee.last_name,
         }
-        allowances = db.session.query(
-            Allowance.id.label('allowance_id'),
-            Allowance.amount,
-            AllowanceType.name.label('allowance_type'),
-            AllowanceType.description.label('allowance_description'),
-            Payroll.year_month.label('allowance_date')
-        ).select_from(Payroll).join(
-            AllowanceAssignment, Payroll.id == AllowanceAssignment.payroll_id
-        ).join(
-            Allowance, AllowanceAssignment.allowance_id == Allowance.id
-        ).join(
-            AllowanceType, Allowance.type_id == AllowanceType.id
-        ).filter(
-            Payroll.employee_id == employee.id
-        ).all()
+        allowances = (
+            db.session.query(
+                Allowance.id.label("allowance_id"),
+                Allowance.amount,
+                AllowanceType.name.label("allowance_type"),
+                AllowanceType.description.label("allowance_description"),
+                Payroll.year_month.label("allowance_date"),
+            )
+            .select_from(Payroll)
+            .join(AllowanceAssignment, Payroll.id == AllowanceAssignment.payroll_id)
+            .join(Allowance, AllowanceAssignment.allowance_id == Allowance.id)
+            .join(AllowanceType, Allowance.type_id == AllowanceType.id)
+            .filter(Payroll.employee_id == employee.id)
+            .all()
+        )
 
         for allowance in allowances:
             allowance_dict = {
@@ -326,27 +377,38 @@ def get_all_employee_allowances():
                 "amount": float(allowance.amount),
                 "allowance_id": allowance.allowance_id,
                 "allowance_type": allowance.allowance_type,
-                "allowance_date": allowance.allowance_date.strftime('%Y-%m-%d'),
-                "allowance_description": allowance.allowance_description
+                "allowance_date": allowance.allowance_date.strftime("%Y-%m-%d"),
+                "allowance_description": allowance.allowance_description,
             }
             all_allowances.append(allowance_dict)
 
     return jsonify(all_allowances), 200
 
 
-@api.route('/allowancetypename', methods=['GET'])
+@api.route("/allowancetypename", methods=["GET"])
 def get_allowance_type_name():
-    allowances = (db.session.query(Allowance, AllowanceType.name)
-                  .join(AllowanceType, Allowance.type_id == AllowanceType.id).all())
+    allowances = (
+        db.session.query(Allowance, AllowanceType.name)
+        .join(AllowanceType, Allowance.type_id == AllowanceType.id)
+        .all()
+    )
 
-    return jsonify([{
-        "id": allowance[0].id,
-        "amount": float(allowance[0].amount),
-        "type": allowance[1]
-    } for allowance in allowances]), 200
+    return (
+        jsonify(
+            [
+                {
+                    "id": allowance[0].id,
+                    "amount": float(allowance[0].amount),
+                    "type": allowance[1],
+                }
+                for allowance in allowances
+            ]
+        ),
+        200,
+    )
 
 
-@api.route('/allowance/<int:id>', methods=['DELETE'])
+@api.route("/allowance/<int:id>", methods=["DELETE"])
 def delete_allowance(id):
     allowance = Allowance.query.get_or_404(id)
     db.session.delete(allowance)
@@ -354,48 +416,61 @@ def delete_allowance(id):
     return make_response(jsonify({"message": "Allowance deleted"}), 204)
 
 
-@api.route('/payroll', methods=['GET'])
+@api.route("/payroll", methods=["GET"])
 def get_payroles():
-    payroles = (db.session.query(Payroll, Employee.first_name, Employee.last_name)
-                .join(Employee, Payroll.employee_id == Employee.id).all())
-    return jsonify([{
-        "id": payroll[0].id,
-        "year_month": payroll[0].year_month.strftime('%Y-%m'),
-        "base": float(payroll[0].base),
-        "overtime": float(payroll[0].overtime),
-        "additional": float(payroll[0].additional),
-        "deductions": float(payroll[0].deductions),
-        "sum": float(payroll[0].sum),
-        "first_name": payroll[1],
-        "last_name": payroll[2]
-    } for payroll in payroles]), 200
+    payroles = (
+        db.session.query(Payroll, Employee.first_name, Employee.last_name)
+        .join(Employee, Payroll.employee_id == Employee.id)
+        .all()
+    )
+    return (
+        jsonify(
+            [
+                {
+                    "id": payroll[0].id,
+                    "year_month": payroll[0].year_month.strftime("%Y-%m"),
+                    "base": float(payroll[0].base),
+                    "overtime": float(payroll[0].overtime),
+                    "additional": float(payroll[0].additional),
+                    "deductions": float(payroll[0].deductions),
+                    "sum": float(payroll[0].sum),
+                    "first_name": payroll[1],
+                    "last_name": payroll[2],
+                }
+                for payroll in payroles
+            ]
+        ),
+        200,
+    )
 
 
-@api.route('/absence_type', methods=['GET'])
+@api.route("/absence_type", methods=["GET"])
 def get_absence_types():
     absence_types = AbsenceType.query.all()
     return jsonify([absence_type.to_dict() for absence_type in absence_types]), 200
 
 
-@api.route('/generate-report', methods=['GET'])
+@api.route("/generate-report", methods=["GET"])
 def generate_report():
-    department_id = request.args.get('department_id', None)
-    superior_id = request.args.get('superior_id', None)
-    start_date = request.args.get('start_date')
-    end_date = request.args.get('end_date')
-    employment_date_from = request.args.get('employment_date_from', None)
-    employment_date_to = request.args.get('employment_date_to', None)
-    start_date = datetime.strptime(start_date, '%Y-%m-%d')
-    end_date = datetime.strptime(end_date, '%Y-%m-%d')
+    department_id = request.args.get("department_id", None)
+    superior_id = request.args.get("superior_id", None)
+    start_date = request.args.get("start_date")
+    end_date = request.args.get("end_date")
+    employment_date_from = request.args.get("employment_date_from", None)
+    employment_date_to = request.args.get("employment_date_to", None)
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date, "%Y-%m-%d")
     if employment_date_from:
-        employment_date_from = datetime.strptime(employment_date_from, '%Y-%m-%d')
+        employment_date_from = datetime.strptime(employment_date_from, "%Y-%m-%d")
     if employment_date_to:
-        employment_date_to = datetime.strptime(employment_date_to, '%Y-%m-%d')
+        employment_date_to = datetime.strptime(employment_date_to, "%Y-%m-%d")
     employees_query = Employee.query
 
     # Filtracja po department_id, jeśli podane
     if department_id:
-        employees_query = employees_query.filter(Employee.department_id == department_id)
+        employees_query = employees_query.filter(
+            Employee.department_id == department_id
+        )
 
     # Filtracja po superior_id, jeśli podane
     if superior_id:
@@ -403,9 +478,13 @@ def generate_report():
 
     # Filtracja po dacie zatrudnienia, jeśli podane
     if employment_date_from:
-        employees_query = employees_query.filter(Employee.date_of_employment >= employment_date_from)
+        employees_query = employees_query.filter(
+            Employee.date_of_employment >= employment_date_from
+        )
     if employment_date_to:
-        employees_query = employees_query.filter(Employee.date_of_employment <= employment_date_to)
+        employees_query = employees_query.filter(
+            Employee.date_of_employment <= employment_date_to
+        )
 
     employees = employees_query.all()
 
@@ -415,48 +494,58 @@ def generate_report():
         payrolls = Payroll.query.filter(
             Payroll.employee_id == employee.id,
             Payroll.year_month >= start_date,
-            Payroll.year_month <= end_date
+            Payroll.year_month <= end_date,
         ).all()
         for payroll in payrolls:
-            data.append({
-                'Employee ID': employee.id,
-                'Name': f"{employee.first_name} {employee.last_name}",
-                'Date of Employment': employee.date_of_employment,
-                'Month': payroll.year_month.strftime('%Y-%m'),
-                'Base': float(payroll.base),
-                'Overtime': float(payroll.overtime),
-                'Additional': float(payroll.additional),
-                'Deductions': float(payroll.deductions),
-                'Sum': float(payroll.sum)
-            })
+            data.append(
+                {
+                    "Employee ID": employee.id,
+                    "Name": f"{employee.first_name} {employee.last_name}",
+                    "Date of Employment": employee.date_of_employment,
+                    "Month": payroll.year_month.strftime("%Y-%m"),
+                    "Base": float(payroll.base),
+                    "Overtime": float(payroll.overtime),
+                    "Additional": float(payroll.additional),
+                    "Deductions": float(payroll.deductions),
+                    "Sum": float(payroll.sum),
+                }
+            )
 
     df = pd.DataFrame(data)
     path = os.getcwd()
     # Zapis do pliku Excel
-    excel_path = os.path.join(path, 'payroll_report.xlsx')
+    excel_path = os.path.join(path, "payroll_report.xlsx")
     df.to_excel(excel_path, index=False)
 
-    return send_file(excel_path, as_attachment=True, download_name='payroll_report.xlsx')
+    return send_file(
+        excel_path, as_attachment=True, download_name="payroll_report.xlsx"
+    )
 
 
-@api.route('/calculate-monthly-payroll', methods=['POST'])
+@api.route("/calculate-monthly-payroll", methods=["POST"])
 def calculate_monthly_payroll():
     data = request.get_json()
-    year_month = data.get('year_month')
+    year_month = data.get("year_month")
 
     if not year_month:
-        return jsonify({'error': 'Year_month is required.'}), 400
+        return jsonify({"error": "Year_month is required."}), 400
 
     try:
         year_month_date = datetime.strptime(year_month, "%Y-%m")
     except ValueError:
-        return jsonify({'error': 'Invalid year_month format, expected YYYY-MM'}), 400
+        return jsonify({"error": "Invalid year_month format, expected YYYY-MM"}), 400
 
-    employees = Employee.query.filter(Employee.activity == '1').all()  # Assuming '1' means active
+    employees = Employee.query.filter(
+        Employee.activity == "1"
+    ).all()  # Assuming '1' means active
 
     for employee in employees:
-        worked_hours = calculate_worked_hours(employee.id, year_month_date)
-        paid_absence_hours = calculate_paid_absences(employee.id, year_month_date)
+        worked_hours = calculate_worked_hours(
+            employee.id, year_month_date.year, year_month_date.month
+        )
+        paid_absence_hours = calculate_paid_absences(
+            employee.id, year_month_date.year, year_month_date.month
+        )
 
         total_hours = Decimal(worked_hours) + Decimal(paid_absence_hours)
         hours_difference = total_hours - (168 * employee.part_time)
@@ -470,11 +559,11 @@ def calculate_monthly_payroll():
 
         if overtime > 0:
             overtime_record = Overtime(
-                id = 7001,
+                id=7001,
                 employee_id=employee.id,
                 year_month=year_month_date,
                 number_of_hours=overtime,
-                hour_multiplier=Decimal(1.5)
+                hour_multiplier=Decimal(1.5),
             )
             db.session.add(overtime_record)
 
@@ -486,38 +575,76 @@ def calculate_monthly_payroll():
             overtime=overtime * employee.hourly_rate * Decimal(1.5),
             additional=Decimal(0),
             deductions=deductions * employee.hourly_rate,
-            sum=employee.hourly_rate * 168 * employee.part_time + overtime * employee.hourly_rate * Decimal(1.5)
-                - deductions * employee.hourly_rate
+            sum=employee.hourly_rate * 168 * employee.part_time
+            + overtime * employee.hourly_rate * Decimal(1.5)
+            - deductions * employee.hourly_rate,
         )
         db.session.add(payroll)
 
     db.session.commit()
-    return jsonify({'message': 'Monthly payroll calculated for all active employees successfully'}), 200
+    return (
+        jsonify(
+            {
+                "message": "Monthly payroll calculated for all active employees successfully"
+            }
+        ),
+        200,
+    )
 
 
-def calculate_worked_hours(employee_id, date):
-    hours = db.session.query(func.sum(
-        extract('hour', Presence.time_of_exit) - extract('hour', Presence.time_of_entry)
-    )).filter(
-        Presence.employee_id == employee_id,
-        func.date_trunc('month', Presence.date) == date
-    ).scalar() or 0
+def calculate_worked_hours(employee_id, year, month):
+    start_date = datetime(year, month, 1)
+    end_date = (start_date + timedelta(days=32)).replace(day=1)
+
+    hours = (
+        db.session.query(
+            func.sum(
+                func.extract("epoch", Presence.time_of_exit)
+                - func.extract("epoch", Presence.time_of_entry)
+            )
+            / 3600.0
+        )
+        .filter(
+            Presence.employee_id == employee_id,
+            Presence.time_of_entry >= start_date,
+            Presence.time_of_entry < end_date,
+        )
+        .scalar()
+        or 0
+    )
     return hours
 
 
-def calculate_paid_absences(employee_id, date):
-    hours = db.session.query(func.sum(
-        (func.cast(Absence.end_date, Date) - func.cast(Absence.start_date, Date) + 1).cast(Numeric) *
-        8 *
-        (func.cast(AbsenceType.payment_percentage, Float) / 100)
-    )).select_from(Absence).join(AbsenceType).filter(
-        Absence.employee_id == employee_id,
-        func.date_trunc('month', Absence.start_date) == date
-    ).scalar() or 0
+def calculate_paid_absences(employee_id, year, month):
+    start_date = datetime(year, month, 1)
+    end_date = (start_date + timedelta(days=32)).replace(day=1)
+
+    hours = (
+        db.session.query(
+            func.sum(
+                (
+                    func.cast(Absence.end_date, Date)
+                    - func.cast(Absence.start_date, Date)
+                    + 1
+                ).cast(Numeric)
+                * 8
+                * (func.cast(AbsenceType.payment_percentage, Float) / 100)
+            )
+        )
+        .select_from(Absence)
+        .join(AbsenceType)
+        .filter(
+            Absence.employee_id == employee_id,
+            Absence.start_date >= start_date,
+            Absence.start_date < end_date,
+        )
+        .scalar()
+        or 0
+    )
     return hours
 
 
-@api.route('/managers', methods=['GET'])
+@api.route("/managers", methods=["GET"])
 def get_managers():
     managers = Employee.query.filter(Employee.superior_id.is_(None)).all()
     if managers:
@@ -525,21 +652,28 @@ def get_managers():
     else:
         return jsonify({"message": "No managers found"}), 404
 
-@api.route('/presences/bulk', methods=['POST'])
+
+@api.route("/presences/bulk", methods=["POST"])
 def add_presences_bulk():
     data = request.get_json()
-    if 'presences' not in data or not isinstance(data['presences'], list):
-        return jsonify({"error": "Invalid data format, expected a list of presences."}), 400
+    if "presences" not in data or not isinstance(data["presences"], list):
+        return (
+            jsonify({"error": "Invalid data format, expected a list of presences."}),
+            400,
+        )
 
     new_presences = []
-    for presence_data in data['presences']:
+    for presence_data in data["presences"]:
         try:
             new_presence = Presence(
-                date=datetime.strptime(presence_data['date'], '%Y-%m-%d').isoformat(),
-                time_of_entry=datetime.strptime(presence_data['time_of_entry'], '%H:%M:%S').time(),
-                time_of_exit=datetime.strptime(presence_data['time_of_exit'], '%H:%M:%S').time(),
-                comment=presence_data.get('comment', ''),
-                employee_id=presence_data['employee_id']
+                time_of_entry=datetime.strptime(
+                    presence_data["time_of_entry"], "%Y-%m-%d %H:%M:%S"
+                ),
+                time_of_exit=datetime.strptime(
+                    presence_data["time_of_exit"], "%Y-%m-%d %H:%M:%S"
+                ),
+                comment=presence_data.get("comment", ""),
+                employee_id=presence_data["employee_id"],
             )
             new_presences.append(new_presence)
         except KeyError as e:
@@ -549,26 +683,31 @@ def add_presences_bulk():
 
     db.session.add_all(new_presences)
     db.session.commit()
-    return jsonify({"message": "Presences added successfully", "count": len(new_presences)}), 201
+    return (
+        jsonify(
+            {"message": "Presences added successfully", "count": len(new_presences)}
+        ),
+        201,
+    )
 
-@api.route('/overtime', methods=['GET'])
+
+@api.route("/overtime", methods=["GET"])
 def get_overtime():
     overtime_list = Overtime.query.all()
     return jsonify([overtime.to_dict() for overtime in overtime_list]), 200
 
 
-@api.route('/allowancetype', methods=['GET'])
+@api.route("/allowancetype", methods=["GET"])
 def get_allowance_list():
     allowance_list = AllowanceType.query.all()
     return jsonify([allowance.to_dict() for allowance in allowance_list]), 200
 
 
-@api.route('/allowanceassignment', methods=['POST'])
+@api.route("/allowanceassignment", methods=["POST"])
 def assing_allowance():
     data = request.get_json()
     new_allowance = AllowanceAssignment(
-        allowance_id=data['allowance_id'],
-        payroll_id=data['payroll_id']
+        allowance_id=data["allowance_id"], payroll_id=data["payroll_id"]
     )
     db.session.add(new_allowance)
     db.session.commit()
