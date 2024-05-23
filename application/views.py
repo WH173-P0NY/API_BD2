@@ -571,13 +571,13 @@ def calculate_monthly_payroll():
             id=10010,
             employee_id=employee.id,
             year_month=year_month_date,
-            base=employee.hourly_rate * 168 * employee.part_time,
-            overtime=overtime * employee.hourly_rate * Decimal(1.5),
+            base=round(employee.hourly_rate * 168 * employee.part_time,2),
+            overtime=round(overtime * employee.hourly_rate * Decimal(1.5),2),
             additional=Decimal(0),
-            deductions=deductions * employee.hourly_rate,
-            sum=employee.hourly_rate * 168 * employee.part_time
+            deductions=round(deductions * employee.hourly_rate,2),
+            sum=round(employee.hourly_rate * 168 * employee.part_time
             + overtime * employee.hourly_rate * Decimal(1.5)
-            - deductions * employee.hourly_rate,
+            - deductions * employee.hourly_rate,2),
         )
         db.session.add(payroll)
 
